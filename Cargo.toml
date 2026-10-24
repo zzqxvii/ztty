@@ -1,0 +1,80 @@
+[package]
+name = "ztty"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+description = "A terminal on GPUI and Ely."
+repository = "https://github.com/zzqxvii/ztty"
+publish = false
+
+[dependencies]
+alacritty_terminal = { version = "=0.26.0", default-features = false }
+anyhow = "1"
+base64 = "0.22"
+dirs = "7"
+ely-gpui-component = { git = "https://github.com/ELY-Open-Source/Ely-GPUI-Components.git", rev = "7f7a715d797d8450eed4f17ae8002b5427d01d28" }
+env_logger = "0.11"
+futures = "0.3"
+gethostname = "1.1.0"
+gpui = { package = "gpui-pre", version = "=0.3.8", default-features = false }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.8", features = ["font-kit", "wayland", "x11"] }
+log = "0.4"
+polling = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_path_to_error = "0.1.20"
+
+[build-dependencies]
+embed-resource = "3"
+
+[dev-dependencies]
+resvg = { version = "0.46", default-features = false }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+rustix-openpty = "0.2"
+signal-hook = "0.4"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+raw-window-handle = "0.6"
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+x11rb = { version = "0.13", features = ["randr"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+wayland-protocols = { version = "0.32", features = ["server", "staging"] }
+wayland-server = "0.31"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block = "0.1"
+objc = "0.2"
+raw-window-handle = "0.6"
+unicode-normalization = "0.1"
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+core-graphics = { version = "0.24", features = ["highsierra"] }
+foreign-types = "0.5"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(windows)'.dependencies]
+raw-window-handle = "0.6"
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+windows-sys = { version = "0.61", features = ["Wdk_System_SystemServices", "Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Diagnostics_ToolHelp", "Win32_System_LibraryLoader", "Win32_System_Pipes", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security", "Win32_System_IO"] }
+
+[patch.crates-io]
+alacritty_terminal = { git = "https://github.com/ELY-Open-Source/alacritty.git", rev = "b01073b95c78df47294f3b8499dd6aaba62bbd71" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[[test]]
+name = "fonts"
+harness = false

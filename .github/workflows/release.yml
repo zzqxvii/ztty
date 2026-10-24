@@ -1,0 +1,34 @@
+name: Release
+
+# Dispatched once the version's draft release holds the Windows and Linux builds.
+on:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    # The owner's login session, whose keychain holds the Developer ID identity.
+    runs-on: [self-hosted, macos-signing]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      # The runner's PATH lacks the host's rustup.
+      - run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: rustup toolchain install --no-self-update
+      - name: Build, sign and notarize the disk image
+        env:
+          SIGN_IDENTITY: "Developer ID Application: Yang Zhang (9PDD8M2SMS)"
+          NOTARY_KEY: ${{ runner.temp }}/notary.p8
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          NOTARY_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          trap 'rm -f "$NOTARY_KEY"' EXIT
+          (umask 077 && printf '%s' "$NOTARY_KEY_P8" > "$NOTARY_KEY")
+          scripts/mac-app.sh
+      - name: Put the disk image on the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(cargo pkgid)
+          scripts/release-asset.sh "target/release/Ztty-${version##*[#@]}.dmg"
