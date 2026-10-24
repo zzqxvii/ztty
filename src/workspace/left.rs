@@ -7,7 +7,6 @@ use ely_gpui_component::{
     data_display::Badge,
     primitives::{Icon, IconName, Tooltip},
     theme::{ActiveTheme, ControlSize, IconSize, Radius, TextSize, Theme},
-    typography::Caption,
 };
 use gpui::{
     AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton,
@@ -54,16 +53,10 @@ pub(super) fn body(
             ));
         }
     }
-    let empty = this.projects.iter().all(|project| !project.saved);
     let list = div()
         .flex()
         .flex_col()
         .gap_0p5()
-        .children(empty.then(|| {
-            Caption::new(text(cx, "workspace.no_projects", &[]))
-                .px_1()
-                .pb_1()
-        }))
         .children(rows);
     div()
         .size_full()

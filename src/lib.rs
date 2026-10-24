@@ -1,5 +1,6 @@
 pub mod app;
 pub mod blur;
+pub mod components;
 pub mod diff;
 pub mod file;
 pub mod files;

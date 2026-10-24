@@ -117,16 +117,16 @@ fn pane_tabs(shown: PanelTab, cx: &App) -> Div {
         .items_center()
         .gap_1()
         .child(tab(
-            PanelTab::Git,
-            "pane-git",
-            IconName::GitBranch,
-            "panel.git",
-        ))
-        .child(tab(
             PanelTab::Files,
             "pane-files",
             IconName::FolderOpen,
             "panel.files",
+        ))
+        .child(tab(
+            PanelTab::Git,
+            "pane-git",
+            IconName::GitBranch,
+            "panel.git",
         ))
 }
 

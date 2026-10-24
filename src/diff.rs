@@ -3,7 +3,7 @@
 use std::{path::PathBuf, rc::Rc};
 
 use ely_gpui_component::{
-    git::{ChangeSection, DiffLayout, DiffViewer, Stretch},
+    git::{ChangeSection, Stretch},
     typography::Caption,
 };
 use gpui::{
@@ -11,7 +11,11 @@ use gpui::{
     div,
 };
 
-use crate::{git::Change, projects};
+use crate::{
+    components::diff::{Layout, Viewer},
+    git::Change,
+    projects,
+};
 
 /// Why a diff shows no lines.
 enum Note {
@@ -27,7 +31,7 @@ pub struct DiffView {
     change: Change,
     section: ChangeSection,
     lines: Option<Result<Rc<Vec<Stretch>>, Note>>,
-    layout: DiffLayout,
+    layout: Layout,
     _reading: Option<Task<()>>,
 }
 
@@ -44,7 +48,7 @@ impl DiffView {
             change,
             section,
             lines: None,
-            layout: DiffLayout::Unified,
+            layout: Layout::Unified,
             _reading: None,
         };
         view.reload(cx);
@@ -92,14 +96,18 @@ impl Render for DiffView {
         };
         let laid_out = cx.entity();
         let name = self.name();
-        DiffViewer::from_stretches(format!("diff:{name}"), name, lines)
-            .layout(self.layout)
-            .on_layout(move |layout, _, cx| {
-                laid_out.update(cx, |this, cx| {
-                    this.layout = layout;
-                    cx.notify();
-                });
-            })
-            .into_any_element()
+        Viewer::new(
+            format!("diff:{name}"),
+            name.into(),
+            lines,
+            self.layout,
+        )
+        .on_layout(move |layout, _, cx| {
+            laid_out.update(cx, |this, cx| {
+                this.layout = layout;
+                cx.notify();
+            });
+        })
+        .into_any_element()
     }
 }

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use gpui::{Context, PathPromptOptions, Window};
 
-use super::{TITLE, Workspace};
+use super::Workspace;
 use crate::{
     projects::{self, Worktree},
     settings::SettingsStore,
@@ -35,7 +35,7 @@ impl ProjectView {
     }
 
     /// The start folder as the one project while the settings list none.
-    pub(super) fn scratch(folder: PathBuf) -> Self {
+    pub(super) fn scratch(folder: PathBuf, name: String) -> Self {
         let worktree = Worktree {
             path: folder.clone(),
             branch: None,
@@ -43,7 +43,7 @@ impl ProjectView {
         };
         Self {
             path: folder,
-            name: TITLE.into(),
+            name,
             error: None,
             saved: false,
             collapsed: false,
@@ -179,7 +179,8 @@ impl Workspace {
         }
         if self.projects.is_empty() {
             let home = dirs::home_dir().unwrap_or_default();
-            self.projects.push(ProjectView::scratch(home));
+            let name = crate::i18n::text(cx, "workspace.current_folder", &[]).to_string();
+            self.projects.push(ProjectView::scratch(home, name));
         }
         let project = self.shown.project.min(self.projects.len() - 1);
         let worktree = self

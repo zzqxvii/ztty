@@ -67,7 +67,8 @@ impl Workspace {
             .map(ProjectView::new)
             .collect();
         if projects.is_empty() {
-            projects.push(ProjectView::scratch(home.clone()));
+            let name = text(cx, "workspace.current_folder", &[]).to_string();
+            projects.push(ProjectView::scratch(home.clone(), name));
         }
         let folder = projects
             .first()
