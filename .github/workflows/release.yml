@@ -1,15 +1,81 @@
 name: Release
 
-# Dispatched once the version's draft release holds the Windows and Linux builds.
+# A tag names the version, so `git push origin v0.0.1` makes its release with all three builds; a dispatch reads the version from Cargo.toml.
 on:
   workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
 
 jobs:
+  # The draft stands before any build uploads to it, and a tag must name the version Cargo.toml holds.
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install --no-self-update
+      - id: version
+        run: |
+          version=$(cargo pkgid)
+          version=${version##*[#@]}
+          case "$version" in [0-9]*) ;; *) echo "release: cargo pkgid names no version" >&2; exit 1 ;; esac
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "release: tag $GITHUB_REF_NAME is not v$version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Make the draft, unless it stands
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "release: v$VERSION stands"
+          else
+            gh release create "v$VERSION" --draft --title "Ztty $VERSION" --notes "Ztty $VERSION"
+          fi
+
+  windows:
+    needs: prepare
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@v2
+      - run: scripts/windows-zip.ps1
+      - name: Put the zip on the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          $zip = Get-ChildItem target/release -Filter "Ztty-$env:VERSION-windows-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw "release: no zip for $env:VERSION" }
+          gh release upload "v$env:VERSION" $zip.FullName --clobber
+
+  linux:
+    needs: prepare
+    # linux-tar.sh builds on Debian 12's glibc inside Docker, which a hosted runner holds.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/linux-tar.sh
+      - name: Put the tarball on the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          tar=$(ls target/release/Ztty-"$VERSION"-linux-*.tar.gz)
+          gh release upload "v$VERSION" "$tar" --clobber
+
   macos:
+    needs: prepare
     # The owner's login session, whose keychain holds the Developer ID identity.
     runs-on: [self-hosted, macos-signing]
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
       # The runner's PATH lacks the host's rustup.
