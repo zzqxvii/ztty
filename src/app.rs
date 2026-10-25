@@ -153,6 +153,9 @@ fn open_window(first: Option<Launch>, cx: &mut App) -> anyhow::Result<WindowHand
         window_background: background,
         ..Default::default()
     };
+    // Windows' wheel settings, read where gpui reads its own.
+    #[cfg(windows)]
+    crate::term::keep_wheel()?;
     let window = cx.open_window(options, |window, cx| {
         window.set_app_id(APP_ID);
         window

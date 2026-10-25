@@ -98,6 +98,8 @@ pub struct TerminalView {
     focused: bool,
     blinking: bool,
     shown: bool,
+    /// The kitty keyboard flags, as the parser last left them.
+    kitty: TermMode,
     _events: Task<()>,
     _blink: Task<()>,
     _herdr: Task<()>,
@@ -155,6 +157,7 @@ impl TerminalView {
             focused: false,
             blinking: false,
             shown: true,
+            kitty: TermMode::empty(),
             _events: Self::pump(events, cx),
             _blink: Self::blink(cx),
             _herdr: super::herdr::follow(cx),
@@ -303,6 +306,16 @@ impl TerminalView {
                     cx.emit(TerminalEvent::Title(String::new()));
                     self.restate(cx);
                 }
+            }
+        }
+        if drawn {
+            let kitty = *self.pty.term.lock().mode() & TermMode::KITTY_KEYBOARD_PROTOCOL;
+            if kitty != self.kitty {
+                log::debug!(
+                    "terminal {}: kitty keyboard flags {kitty:?}",
+                    self.pty.pid
+                );
+                self.kitty = kitty;
             }
         }
         // ponytail: a full search per output batch while find is open; search only new lines if it lags.

@@ -68,7 +68,8 @@ windows-sys = { version = "0.61", features = ["Wdk_System_SystemServices", "Win3
 windows-sys = { version = "0.61", features = ["Win32_Security", "Win32_System_IO"] }
 
 [patch.crates-io]
-alacritty_terminal = { git = "https://github.com/ELY-Open-Source/alacritty.git", rev = "b01073b95c78df47294f3b8499dd6aaba62bbd71" }
+alacritty_terminal = { git = "https://github.com/ELY-Open-Source/alacritty.git", rev = "4a10fb38b9497a08dbc698a787b8a0894c654f1c" }
+xim-ctext = { path = "vendor/xim-ctext" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
