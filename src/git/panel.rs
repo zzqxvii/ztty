@@ -17,6 +17,14 @@ mod view;
 /// The newest commits the panel lists.
 const RECENT: usize = 50;
 
+/// Which half of the panel draws: git's changes, or the commits they sit on.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Pane {
+    #[default]
+    Changes,
+    Commits,
+}
+
 /// What the shown folder reads as.
 #[derive(PartialEq)]
 enum State {
@@ -59,6 +67,8 @@ pub struct GitPanel {
     subject: Entity<TextInput>,
     body: Entity<TextInput>,
     amend: bool,
+    /// The half the right column shows: the changes, or the commits.
+    pane: Pane,
     discarding: Option<(Change, ChangeSection)>,
     reading: Task<()>,
     /// The last action asked; each waits for the one before it.
@@ -87,6 +97,7 @@ impl GitPanel {
             subject,
             body,
             amend: false,
+            pane: Pane::Changes,
             discarding: None,
             reading: Task::ready(()),
             acting: Task::ready(()),
@@ -108,6 +119,16 @@ impl GitPanel {
             cx.notify();
         }
         self.read(cx);
+    }
+
+    /// Draws the changes or the commits, as the right column's switch asks.
+    pub fn pane(&mut self, pane: Pane, cx: &mut Context<Self>) {
+        if self.pane == pane {
+            return;
+        }
+        log::debug!("git panel: the {pane:?} show");
+        self.pane = pane;
+        cx.notify();
     }
 
     /// The repository shown, once it was read in the shown folder.

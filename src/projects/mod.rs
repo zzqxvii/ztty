@@ -15,6 +15,8 @@ pub struct Project {
     pub path: PathBuf,
     pub name: String,
     pub worktrees: Vec<Worktree>,
+    /// Whether git named its worktrees, so a new one can be made of it.
+    pub repository: bool,
     /// Why the folder cannot be read, while it cannot.
     pub error: Option<String>,
 }
@@ -38,6 +40,7 @@ impl Project {
             path,
             name,
             worktrees: Vec::new(),
+            repository: false,
             error,
         }
     }
@@ -54,6 +57,7 @@ impl Project {
                     self.path.display(),
                     found.len()
                 );
+                self.repository = true;
                 self.worktrees = found
                     .into_iter()
                     .map(|worktree| Worktree {
@@ -154,6 +158,37 @@ pub fn same(one: &Path, other: &Path) -> bool {
     }
 }
 
+/// Makes a worktree of `folder`'s repository at `path`, on a new branch `branch`.
+pub fn make(folder: &Path, path: &Path, branch: &str) -> anyhow::Result<()> {
+    git::create(folder, path, branch.trim())
+}
+
+/// Where a worktree on `branch` goes: beside the main checkout, named after it and the branch, each slash a dash.
+pub fn place(main: &Path, branch: &str) -> PathBuf {
+    let branch = branch.trim().replace(['/', '\\'], "-");
+    let beside = main.parent().unwrap_or(main);
+    beside.join(format!("{}-{branch}", name(main)))
+}
+
+/// Whether `branch` names a new branch, as `git check-ref-format --branch` reads one.
+pub fn branch_ok(branch: &str) -> bool {
+    let branch = branch.trim();
+    let refused = "~^:?*[\\";
+    !branch.is_empty()
+        && !branch.starts_with('-')
+        && !branch.ends_with(['/', '.'])
+        && !branch.ends_with(".lock")
+        && !branch.contains("..")
+        && !branch.contains("@{")
+        && !branch.contains("//")
+        && !branch
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || refused.contains(c))
+        && branch
+            .split('/')
+            .all(|part| !part.is_empty() && !part.starts_with('.'))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +254,28 @@ mod tests {
     }
 
     #[test]
+    fn a_new_worktree_stands_beside_the_main_checkout() {
+        let beside = |main: &str, branch: &str| place(Path::new(main), branch);
+        assert_eq!(beside("/w/app", "wt-1"), PathBuf::from("/w/app-wt-1"));
+        assert_eq!(beside("/w/app", "feat/x"), PathBuf::from("/w/app-feat-x"));
+        assert_eq!(beside("/w/app/", " wt "), PathBuf::from("/w/app-wt"));
+        assert_eq!(beside("/", "x"), PathBuf::from("/-x"));
+    }
+
+    #[test]
+    fn a_branch_name_is_read_as_git_reads_it() {
+        for good in ["main", "feat/x", "wt-1", "release/v1.2", "a.b", "_x"] {
+            assert!(branch_ok(good), "{good} should pass");
+        }
+        for bad in [
+            "", " ", "-x", "a b", "a/", "a.", "a.lock", "a..b", "a@{b", "a//b", "/a", ".a", "a~b",
+            "a^b", "a:b", "a?b", "a*b", "a[b", "a\\b", "a\tb",
+        ] {
+            assert!(!branch_ok(bad), "{bad:?} should fail");
+        }
+    }
+
+    #[test]
     fn a_plain_folder_stands_as_one_worktree() {
         let folder = scratch("plain");
         let mut project = Project::new(folder.clone());
@@ -227,6 +284,7 @@ mod tests {
         assert_eq!(project.worktrees[0].path, folder);
         assert!(project.worktrees[0].default);
         assert_eq!(project.worktrees[0].branch, None);
+        assert!(!project.repository, "git names no worktree here");
         assert!(project.error.is_none());
         fs::remove_dir_all(&folder).expect("cleanup");
     }

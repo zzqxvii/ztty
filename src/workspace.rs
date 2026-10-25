@@ -1,4 +1,7 @@
-use std::{path::PathBuf, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use ely_gpui_component::overlays::ConfirmDialog;
 use gpui::{
@@ -8,11 +11,11 @@ use gpui::{
 use crate::{
     blur::Blur,
     files::{Files, Opened},
-    git::panel::{Acted, GitPanel, Opened as DiffOpened},
+    git::panel::{Acted, GitPanel, Opened as DiffOpened, Pane},
     i18n::text,
     projects,
     sessions::Session,
-    settings::{Settings, SettingsStore},
+    settings::{PanelTab, Settings, SettingsStore},
     term::Launch,
     worktree::WorktreeView,
 };
@@ -24,13 +27,15 @@ mod project;
 mod session;
 mod tabs;
 mod view;
+mod watch;
 mod widths;
 
 pub use keys::{
     CONTEXT, CloseSession, LastSession, NewSession, NextSession, NextTab, PreviousSession,
     PreviousTab, SelectSession, TITLE, TogglePanel, ToggleSessions, bind_keys,
 };
-use project::{ProjectView, Shown};
+use project::{Making, ProjectView, Shown};
+use watch::Watched;
 use widths::Dragged;
 
 /// The main window's content: projects and their worktrees, the middle's tabs, and Git or Files.
@@ -50,6 +55,12 @@ pub struct Workspace {
     pending: Option<Shown>,
     /// The project a press asked to remove.
     pub(super) removing: Option<usize>,
+    /// The worktree a project's button asks for, while its prompt is open.
+    pub(super) making: Option<Making>,
+    /// Why the last worktree was not made, in git's words, until dismissed.
+    pub(super) failed: Option<String>,
+    /// The shown worktree watched on disk.
+    watching: Option<Watched>,
     _settings: Subscription,
     _acted: Subscription,
     _opened: Subscription,
@@ -74,7 +85,11 @@ impl Workspace {
             .first()
             .and_then(|project| project.worktrees.first())
             .map_or_else(|| home.clone(), |worktree| worktree.path.clone());
+        let commits = settings.panel == PanelTab::Commits;
         let git = cx.new(|cx| GitPanel::new(folder.clone(), window, cx));
+        if commits {
+            git.update(cx, |git, cx| git.pane(Pane::Commits, cx));
+        }
         let files = cx.new(|_| Files::new(folder));
         // A change the Git panel made shows in Files' marks too, and in every open diff.
         let acted = cx.subscribe(&git, |this, _, _: &Acted, cx| {
@@ -114,6 +129,9 @@ impl Workspace {
             ticking: None,
             pending: None,
             removing: None,
+            making: None,
+            failed: None,
+            watching: None,
             _settings: cx.observe_global_in::<SettingsStore>(window, |this, window, cx| {
                 this.background.follow(window, SettingsStore::get(cx));
                 cx.notify();
@@ -126,6 +144,9 @@ impl Workspace {
         match first {
             Some(launch) => workspace.open_launch(launch, window, cx),
             None => workspace.select_worktree(0, 0, window, cx),
+        }
+        if let Some(folder) = workspace.follow_folder() {
+            workspace.watch(&folder, cx);
         }
         workspace
     }
@@ -277,8 +298,45 @@ impl Workspace {
         let Some(folder) = self.follow_folder() else {
             return;
         };
+        self.watch(&folder, cx);
         self.files.update(cx, |files, cx| files.show(&folder, cx));
         self.git.update(cx, |git, cx| git.show(&folder, cx));
+    }
+
+    /// Watches the folder the panels show, so a change on disk reads them again.
+    fn watch(&mut self, folder: &Path, cx: &mut Context<Self>) {
+        if self
+            .watching
+            .as_ref()
+            .is_some_and(|watched| watched.path() == folder)
+        {
+            return;
+        }
+        let error = match self.watching.take() {
+            Some(mut watched) => {
+                let result = watched.follow(folder);
+                self.watching = Some(watched);
+                result.err()
+            }
+            None => match Watched::new(folder, cx) {
+                Ok(watched) => {
+                    self.watching = Some(watched);
+                    None
+                }
+                Err(error) => Some(error),
+            },
+        };
+        match error {
+            Some(error) => log::warn!("watch: {} is not watched: {error}", folder.display()),
+            None => log::info!("watch: {} watched", folder.display()),
+        }
+    }
+
+    /// Reads Files, Git and every open file and diff again, as the disk changed under them.
+    pub(super) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.follow(cx);
+        self.reload_files(cx);
+        self.reload_diffs(cx);
     }
 
     /// Reads every file tab again, as a program may have changed it meanwhile.
@@ -391,6 +449,23 @@ impl Workspace {
             }
             Err(error) => log::error!("app: the columns stay: {error:#}"),
         }
+    }
+
+    /// Shows one of the right column's three views, saved, and tells the Git panel which half draws.
+    fn show_pane(&mut self, panel: PanelTab, cx: &mut Context<Self>) {
+        if SettingsStore::get(cx).panel != panel {
+            match SettingsStore::update(cx, |settings| settings.panel = panel) {
+                Ok(()) => log::info!("app: the right column shows {panel:?}"),
+                Err(error) => log::error!("app: the right column stays: {error:#}"),
+            }
+        }
+        let half = match panel {
+            PanelTab::Git => Pane::Changes,
+            PanelTab::Commits => Pane::Commits,
+            PanelTab::Files => return,
+        };
+        self.git.update(cx, |git, cx| git.pane(half, cx));
+        cx.notify();
     }
 
     /// Shows the next worktree, or the one before, round the ends.

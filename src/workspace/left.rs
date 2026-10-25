@@ -5,7 +5,8 @@ use std::{path::Path, time::Instant};
 use ely_gpui_component::{
     buttons::{Button, ButtonVariant, IconButton},
     data_display::Badge,
-    primitives::{Icon, IconName, Tooltip},
+    feedback::Alert,
+    primitives::{Icon, IconName, Severity, Tooltip},
     theme::{ActiveTheme, ControlSize, IconSize, Radius, TextSize, Theme},
 };
 use gpui::{
@@ -53,16 +54,28 @@ pub(super) fn body(
             ));
         }
     }
-    let list = div()
-        .flex()
-        .flex_col()
-        .gap_0p5()
-        .children(rows);
+    let list = div().flex().flex_col().gap_0p5().children(rows);
+    let failed = this.failed.clone().map(|said| {
+        let dismiss = workspace.clone();
+        Alert::new(
+            "worktree-failed",
+            Severity::Danger,
+            text(cx, "workspace.worktree_failed", &[]),
+        )
+        .body(said)
+        .on_dismiss(move |_, cx| {
+            dismiss.update(cx, |this, cx| {
+                this.failed = None;
+                cx.notify();
+            })
+        })
+    });
     div()
         .size_full()
         .flex()
         .flex_col()
         .gap_1()
+        .children(failed)
         .child(
             div()
                 .id("project-list")
@@ -132,6 +145,18 @@ fn project_row(
     });
     let pressed = workspace.clone();
     let remove = workspace.clone();
+    let make = workspace.clone();
+    // Only a repository git named can take a worktree.
+    let new_worktree = project.repository.then(|| {
+        IconButton::new(("new-worktree", index), IconName::Plus)
+            .variant(ButtonVariant::Ghost)
+            .size(ControlSize::Sm)
+            .tooltip(text(cx, "workspace.new_worktree", &[]))
+            .on_click(move |_, window, cx| {
+                cx.stop_propagation();
+                make.update(cx, |this, cx| this.ask_worktree(index, window, cx))
+            })
+    });
     let row = div()
         .id(("project-row", index))
         .role(Role::ListItem)
@@ -174,8 +199,12 @@ fn project_row(
         )
         .child(
             div()
+                .flex()
+                .items_center()
+                .gap_0p5()
                 .opacity(0.)
                 .group_hover(format!("project-{index}"), |style| style.opacity(1.))
+                .children(new_worktree)
                 .child(
                     IconButton::new(("remove-project", index), IconName::X)
                         .variant(ButtonVariant::Ghost)

@@ -75,25 +75,15 @@ fn tab_room(
     px(room.max(0.))
 }
 
-/// Shows Git or Files in the right column, as the settings keep it.
-fn show_pane(panel: PanelTab, cx: &mut App) {
-    if SettingsStore::get(cx).panel == panel {
-        return;
-    }
-    match SettingsStore::update(cx, |settings| settings.panel = panel) {
-        Ok(()) => log::info!("app: the right column shows {panel:?}"),
-        Err(error) => log::error!("app: the right column stays: {error:#}"),
-    }
-}
-
-/// The right column's two views as quiet icons at its foot: the shown one in the text's color, the other's muted.
-fn pane_tabs(shown: PanelTab, cx: &App) -> Div {
+/// The right column's three views: Files, git's changes, git's commits./// The right column's three views as quiet icons at its foot: the shown one in the text's color, the others' muted.
+fn pane_tabs(workspace: &Entity<Workspace>, shown: PanelTab, cx: &App) -> Div {
     let theme = cx.theme();
     let colors = &theme.colors;
     let side = theme.control_height(ControlSize::Sm);
     let tab = |panel: PanelTab, id: &'static str, icon: IconName, key: &'static str| {
         let on = panel == shown;
         let fg = if on { colors.fg } else { colors.fg_muted };
+        let pressing = workspace.clone();
         div()
             .id(id)
             .role(Role::RadioButton)
@@ -109,7 +99,7 @@ fn pane_tabs(shown: PanelTab, cx: &App) -> Div {
             .cursor_pointer()
             .hover(|style| style.bg(colors.hover))
             .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
-            .on_click(move |_, _, cx| show_pane(panel, cx))
+            .on_click(move |_, _, cx| pressing.update(cx, |this, cx| this.show_pane(panel, cx)))
             .child(Icon::new(icon).size(IconSize::Sm).color(fg))
     };
     div()
@@ -124,9 +114,15 @@ fn pane_tabs(shown: PanelTab, cx: &App) -> Div {
         ))
         .child(tab(
             PanelTab::Git,
-            "pane-git",
-            IconName::GitBranch,
+            "pane-changes",
+            IconName::GitCommitHorizontal,
             "panel.git",
+        ))
+        .child(tab(
+            PanelTab::Commits,
+            "pane-commits",
+            IconName::GitBranch,
+            "panel.commits",
         ))
 }
 
@@ -251,10 +247,16 @@ impl Render for Workspace {
                 column.action(panel_toggle())
             };
             column
-                .child(pane(tab == PanelTab::Git).child(self.git.clone().cached(fill())))
+                .child(pane(tab != PanelTab::Files).child(self.git.clone().cached(fill())))
                 .child(pane(tab == PanelTab::Files).child(self.files.clone()))
                 // The column's foot, past the panes.
-                .child(div().flex_none().px_2().pb_2().child(pane_tabs(tab, cx)))
+                .child(
+                    div()
+                        .flex_none()
+                        .px_2()
+                        .pb_2()
+                        .child(pane_tabs(&workspace, tab, cx)),
+                )
         });
         // The side columns keep to their edges; the middle holds the rest.
         let (first, last) = if swapped {
@@ -323,5 +325,6 @@ impl Render for Workspace {
                     .child(FocusScope::new(&self.focus).root().size_full().child(shell)),
             )
             .children(self.removal(cx))
+            .children(self.asking(cx))
     }
 }

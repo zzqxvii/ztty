@@ -40,6 +40,12 @@ impl Env {
         }
     }
 
+    /// Takes `name` out, under any case, giving back what it held.
+    pub fn remove(&mut self, name: &str) -> Option<String> {
+        let at = self.0.iter().position(|(held, _)| same(held, name))?;
+        Some(self.0.remove(at).1)
+    }
+
     /// Adds folders to a path variable, as `til::env::concat_var` does.
     fn concat(&mut self, name: &str, value: String) {
         match self.0.iter_mut().find(|(held, _)| same(held, name)) {

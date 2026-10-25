@@ -96,18 +96,13 @@ impl Render for DiffView {
         };
         let laid_out = cx.entity();
         let name = self.name();
-        Viewer::new(
-            format!("diff:{name}"),
-            name.into(),
-            lines,
-            self.layout,
-        )
-        .on_layout(move |layout, _, cx| {
-            laid_out.update(cx, |this, cx| {
-                this.layout = layout;
-                cx.notify();
-            });
-        })
-        .into_any_element()
+        Viewer::new(format!("diff:{name}"), name.into(), lines, self.layout)
+            .on_layout(move |layout, _, cx| {
+                laid_out.update(cx, |this, cx| {
+                    this.layout = layout;
+                    cx.notify();
+                });
+            })
+            .into_any_element()
     }
 }

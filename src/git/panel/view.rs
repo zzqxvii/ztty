@@ -1,8 +1,8 @@
-use std::path::Path;
+use std::{path::Path, rc::Rc};
 
 use ely_gpui_component::{
     feedback::Alert,
-    git::{ChangeSection, Changed, ChangesList, CommitInput, CommitList},
+    git::{ChangeSection, Changed, ChangesList, Commit, CommitInput, CommitList},
     lists::GitStatus,
     overlays::ConfirmDialog,
     primitives::{Icon, IconName, Severity},
@@ -14,7 +14,7 @@ use gpui::{
     SharedString, StatefulInteractiveElement, Styled, Window, div,
 };
 
-use super::{GitPanel, State};
+use super::{GitPanel, Pane, State};
 use crate::git::{Change, Repo};
 
 /// The most files a section lists: Ely's list draws every row, and each row costs every frame.
@@ -110,16 +110,16 @@ fn head(repo: &Repo) -> (IconName, String) {
     }
 }
 
-/// A small heading, as the changes list draws its own.
-fn heading(text: SharedString, cx: &App) -> Div {
-    let theme = cx.theme();
+/// The commits' pane: the list alone, or the word that there is none.
+fn commits_list(commits: Rc<Vec<Commit>>, cx: &App) -> Div {
+    if commits.is_empty() {
+        let said = crate::i18n::text(cx, "git.no_commits", &[]);
+        return div().px_2().child(Caption::new(said));
+    }
     div()
-        .px_2()
-        .py_1()
-        .text_size(theme.text_size(TextSize::Xs))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(theme.colors.fg_muted)
-        .child(text)
+        .flex_1()
+        .min_h_0()
+        .child(CommitList::new("git-commits", commits))
 }
 
 impl GitPanel {
@@ -215,10 +215,12 @@ impl Render for GitPanel {
                 })
             })
             .on_commit(move |_, cx| commit.update(cx, |panel, cx| panel.commit(cx)));
-        let recent = (!commits.is_empty()).then(|| {
-            let list = CommitList::new("git-commits", commits);
-            div().flex_1().min_h_0().child(list)
-        });
+        if self.pane == Pane::Commits {
+            return root
+                .child(branch)
+                .child(commits_list(commits, cx))
+                .children(self.discard_dialog(cx));
+        }
         root.child(branch)
             .children(error)
             .child(
@@ -239,12 +241,6 @@ impl Render for GitPanel {
                     .child(changes),
             )
             .child(message)
-            .children(
-                recent
-                    .is_some()
-                    .then(|| heading(crate::i18n::text(cx, "git.commits", &[]), cx)),
-            )
-            .children(recent)
             .children(self.discard_dialog(cx))
     }
 }

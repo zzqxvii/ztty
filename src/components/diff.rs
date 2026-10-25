@@ -219,19 +219,8 @@ impl RenderOnce for Viewer {
                                 .whitespace_nowrap()
                                 .child(number(line.old))
                                 .child(number(line.new))
-                                .child(
-                                    div()
-                                        .flex_none()
-                                        .text_color(colors.fg_subtle)
-                                        .child(sign),
-                                )
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .overflow_hidden()
-                                        .child(code(line)),
-                                )
+                                .child(div().flex_none().text_color(colors.fg_subtle).child(sign))
+                                .child(div().flex_1().min_w_0().overflow_hidden().child(code(line)))
                                 .into_any_element()
                         }
                         Row::Pair(left, right) => {
@@ -255,9 +244,7 @@ impl RenderOnce for Viewer {
                                     .text_size(size)
                                     .whitespace_nowrap()
                                     .child(number(shown))
-                                    .children(
-                                        line.map(|line| div().min_w_0().child(code(line))),
-                                    )
+                                    .children(line.map(|line| div().min_w_0().child(code(line))))
                             };
                             div()
                                 .w_full()
@@ -415,10 +402,19 @@ mod tests {
         ];
         let pairs = paired(&lines);
         assert_eq!(pairs.len(), 4);
-        assert_eq!(pairs[1].0.as_ref().map(|line| line.text.clone()), Some("b".into()));
-        assert_eq!(pairs[1].1.as_ref().map(|line| line.text.clone()), Some("d".into()));
+        assert_eq!(
+            pairs[1].0.as_ref().map(|line| line.text.clone()),
+            Some("b".into())
+        );
+        assert_eq!(
+            pairs[1].1.as_ref().map(|line| line.text.clone()),
+            Some("d".into())
+        );
         assert!(pairs[2].0.is_some() && pairs[2].1.is_none());
-        assert_eq!(pairs[3].0.as_ref().map(|line| line.text.clone()), Some("e".into()));
+        assert_eq!(
+            pairs[3].0.as_ref().map(|line| line.text.clone()),
+            Some("e".into())
+        );
     }
 
     #[test]

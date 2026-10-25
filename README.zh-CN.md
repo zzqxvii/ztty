@@ -31,7 +31,8 @@ cargo run --release
 - 通知：当窗口在后台或会话被隐藏时，会话开始等待、结束或失败，跑满 5 秒的命令结束，以及程序的 OSC 9、777 或 99，都会发系统通知，每个会话最多 3 秒一条；点一下通知就切换到该会话。
 - Ctrl-Shift-Up 与 Ctrl-Shift-Down 跳到视图顶部之前或之后的那个提示符。
 - 标题栏两端各有一个按钮，隐藏或显示对应侧栏；拖动侧栏与终端之间的边界可以改宽度；窗口按离开时的尺寸和两侧宽度打开。右侧按钮旁边的齿轮打开设置。
-- Files 把 worktree 的根目录显示成带 Git 标记的树，与标签页在做什么无关；点一下折叠文件夹或打开文件。默认显示 Files；Git 与 Files 是侧栏底部的两个图标，选择会被记住。
+- 项目与它们的 worktree：左栏把每个项目列在 `git worktree list` 给出的各检出之上，项目行悬停时的 `+` 可以为它新建一个 worktree——问你分支名，检出放在主检出的旁边，建好就显示并带一个终端。
+- Files 把 worktree 的根目录显示成带 Git 标记的树，与标签页在做什么无关；点一下折叠文件夹或打开文件。树与 Git 面板会跟随磁盘，编辑器保存的文件、终端里跑的 git 命令都立刻反映出来，不必等提示符。默认显示 Files；侧栏底部有三个图标——文件、Git 变更、提交记录，选择会被记住。
 - Git 显示分支，可以暂存、取消暂存、丢弃、提交、列出最近的提交并打开 diff，全部通过 `git` 命令行完成。
 - 主题：Ely Dark、Ely Light、Catppuccin Mocha、Macchiato、Frappé 与 Latte、Tokyo Night、Dracula、Nord、Gruvbox Dark、Rosé Pine、Solarized Light、One Light、Kanagawa Wave。系统处于深色时可以换用第二套主题。
 - 界面支持英文与简体中文：在设置 › 通用里选，首次启动取系统的语言，菜单、窗口与所有文案一起换。

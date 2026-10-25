@@ -86,6 +86,13 @@ pub(crate) fn spawn(
     command.stdout(slave.try_clone()?);
     command.env("USER", &user.name).env("HOME", &user.home);
     command.envs(env);
+    // A color ban belongs to the app that started Ztty, not to the color terminal it opens.
+    for name in ["NO_COLOR", "CLICOLOR"] {
+        if std::env::var_os(name).is_some() {
+            log::debug!("pty: {name} left out of the session's environment");
+            command.env_remove(name);
+        }
+    }
     command.env_remove("XDG_ACTIVATION_TOKEN");
     command.env_remove("DESKTOP_STARTUP_ID");
     let folder = CString::new(cwd.as_os_str().as_bytes())?;

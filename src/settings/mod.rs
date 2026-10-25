@@ -49,7 +49,10 @@ pub enum OptionAsAlt {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PanelTab {
+    /// Git's changes: the branch, what changed, the commit field.
     Git,
+    /// Git's commits: what the branch is built on.
+    Commits,
     #[default]
     Files,
 }

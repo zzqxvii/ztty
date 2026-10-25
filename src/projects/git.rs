@@ -34,6 +34,31 @@ pub fn worktrees(folder: &Path) -> anyhow::Result<Vec<Worktree>> {
     Ok(parse(&output.stdout))
 }
 
+/// Makes a worktree of `folder`'s repository at `path`, on a new branch `branch`; the error names what git said.
+pub fn create(folder: &Path, path: &Path, branch: &str) -> anyhow::Result<()> {
+    let named = format!("projects: `git worktree add` in {}", folder.display());
+    let mut command = crate::git::command(folder);
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        crate::git::CREATE_NO_WINDOW,
+    );
+    let output = command
+        .args(["worktree", "add", "--quiet", "-b", branch])
+        .arg(path)
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .with_context(|| format!("{named} did not run"))?;
+    if !output.status.success() {
+        let said = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("`git worktree add` failed: {}", said.trim());
+    }
+    Ok(())
+}
+
 /// One worktree as git's porcelain lists it.
 #[derive(Default)]
 struct Record {
@@ -258,6 +283,40 @@ mod tests {
             &folder,
             &["worktree", "remove", "--force", other.to_str().unwrap()],
         );
+        fs::remove_dir_all(&folder).expect("cleanup");
+    }
+
+    #[test]
+    fn a_worktree_is_made_on_a_new_branch() {
+        let folder = repository("create");
+        let other = folder.with_file_name(format!(
+            "{}-made",
+            folder.file_name().unwrap().to_string_lossy()
+        ));
+        let _ = fs::remove_dir_all(&other);
+        create(&folder, &other, "made").expect("a worktree is made");
+        let found = worktrees(&folder).expect("a repository");
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[1].branch.as_deref(), Some("made"));
+        assert_eq!(found[1].path.file_name(), other.file_name());
+        run(
+            &folder,
+            &["worktree", "remove", "--force", other.to_str().unwrap()],
+        );
+        fs::remove_dir_all(&folder).expect("cleanup");
+    }
+
+    #[test]
+    fn a_branch_that_is_there_is_not_made_again() {
+        let folder = repository("taken");
+        let other = folder.with_file_name(format!(
+            "{}-taken",
+            folder.file_name().unwrap().to_string_lossy()
+        ));
+        let _ = fs::remove_dir_all(&other);
+        let error = create(&folder, &other, "main").expect_err("the branch is there");
+        assert!(error.to_string().contains("worktree add"), "{error}");
+        assert!(!other.exists());
         fs::remove_dir_all(&folder).expect("cleanup");
     }
 

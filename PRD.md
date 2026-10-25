@@ -83,8 +83,9 @@ Ghostty is the bar for what the terminal does. Ztty owns its engine on `alacritt
 ## 7. Projects, worktrees and tabs
 
 - The left column lists projects, not sessions. A project is a folder the user added, kept in `settings.json` in `projects`, in the user's order.
-- Under a project, its worktrees: from `git -C <project> worktree list --porcelain`, git's order, the main checkout marked `default` in a project of more than one; a folder git does not know stands as one worktree, itself. Worktrees are listed read-only: the app never creates or deletes one.
-- A project row is a folder icon, open or closed as its worktrees show, and its name in the bold weight; a press folds or unfolds it, and a button on hover removes it, after a question; nothing on disk is deleted, its terminals close. No label stands over the rows.
+- Under a project, its worktrees: from `git -C <project> worktree list --porcelain`, git's order, the main checkout marked `default` in a project of more than one; a folder git does not know stands as one worktree, itself. The app deletes no worktree; it makes one only when its project's button asks.
+- A project row is a folder icon, open or closed as its worktrees show, and its name in the bold weight; a press folds or unfolds it, and two buttons on hover leave it alone: one removes it after a question, nothing on disk deleted and its terminals closed, and one, on a repository, makes a worktree of it. No label stands over the rows.
+- Making a worktree asks for a branch name, `wt-1` offered and selected; the worktree stands beside the main checkout, named after it and the branch with each slash a dash, on a new branch. A name git would refuse is held back under the field; git's own refusal shows at the top of the column until dismissed. The new worktree shows with a terminal in it.
 - A worktree row is a card stepped in under its project: a dot, or the mark of the terminal waiting hardest, then its branch, or the folder's name while it has none, and the `default` badge on the main checkout of a project of several; under the name a muted line names its folder, and while a program reports, one more says what it is doing. The card shown is bordered and filled; a hidden terminal that rings or starts waiting makes its name strong.
 - Add project opens the platform's folder picker; a path that is not a readable folder, or is already listed, is refused with a reason. A project whose folder is gone at start stays in the settings with the reason in its row.
 - Selecting a worktree shows its tabs, the one it showed last, and opens a terminal in its root the first time.
@@ -112,6 +113,7 @@ Ghostty is the bar for what the terminal does. Ztty owns its engine on `alacritt
 - Stage and unstage a file. Press a file to see its diff in Ely's `DiffViewer`, in a tab of the middle, unified or split.
 - Discard, which Ely's changes list draws on every unstaged and untracked row, asks first: an edit goes back to the index, a new file is deleted.
 - Outside a repository it says so. A failed git command shows its error.
+- The column shows one of three views, picked by the icons at its foot: Files, git's changes — the branch, what changed, the commit field — and git's commits, the last 50 on the branch.
 - It reloads at each prompt of the shown terminal, and when another worktree is shown.
 
 ## 10. Settings window
@@ -177,4 +179,4 @@ Cmd-, opens it; on Windows and Linux, which have no menu bar, so does a gear at 
 
 ## Deferred
 
-Creating, deleting and switching worktrees, moving a project in the list, pinning, search, splits, profiles, key rebinding, kitty graphics, sixel, session restore, push and pull, quick terminal. Renaming a session, duplicating one, reordering sessions by a drag and a session row's menu went with the session rows.
+Deleting and switching worktrees, moving a project in the list, pinning, search, splits, profiles, key rebinding, kitty graphics, sixel, session restore, push and pull, quick terminal. Renaming a session, duplicating one, reordering sessions by a drag and a session row's menu went with the session rows.

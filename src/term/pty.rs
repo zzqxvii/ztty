@@ -121,6 +121,12 @@ pub fn spawn(
         let mut env = super::env::fresh()?;
         env.set("TERM", "xterm-256color".into());
         env.set("COLORTERM", "truecolor".into());
+        // A color ban belongs to the app that started Ztty, not to the color terminal it opens.
+        for name in ["NO_COLOR", "CLICOLOR"] {
+            if env.remove(name).is_some() {
+                log::debug!("pty: {name} left out of the session's environment");
+            }
+        }
         if env.get("LANG").is_none() {
             env.set("LANG", "en_US.UTF-8".into());
         }

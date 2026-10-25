@@ -40,6 +40,14 @@ fn a_name_matches_as_windows_matches_it() {
 }
 
 #[test]
+fn a_color_ban_goes_under_any_case() {
+    let mut held = env(&[("no_color", "1"), ("PATH", r"C:\bin")]);
+    assert_eq!(held.remove("NO_COLOR").as_deref(), Some("1"));
+    assert_eq!(held.remove("NO_COLOR"), None);
+    assert_eq!(held.get("PATH"), Some(r"C:\bin"), "only that name");
+}
+
+#[test]
 fn a_key_sets_plain_text_first_and_joins_path_variables() {
     let mut held = env(&[("SystemRoot", "C:\\old")]);
     let machine = values(&[
