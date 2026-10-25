@@ -1,0 +1,21 @@
+.TH ZTTY 1
+.SH NAME
+ztty \- terminal on GPUI and Ely
+.SH SYNOPSIS
+.B ztty
+.SH DESCRIPTION
+Ztty is a graphical terminal for X11 and Wayland.
+Projects and their worktrees sit on the left, the worktree's tabs in the middle, and Files, Git's changes or Git's commits on the right.
+Open Settings with Ctrl-comma to change appearance, shell and terminal settings.
+Settings lists the keyboard shortcuts available on the current platform.
+.SH FILES
+.I $XDG_CONFIG_HOME/Ztty/settings.json
+.br
+Settings are saved here, or in
+.I ~/.config/Ztty/settings.json
+when XDG_CONFIG_HOME is unset.
+Installing, upgrading or removing a package does not remove this file.
+.SH SEE ALSO
+.UR https://github.com/zzqxvii/ztty
+Ztty documentation and releases
+.UE

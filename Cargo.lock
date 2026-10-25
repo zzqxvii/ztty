@@ -8839,6 +8839,7 @@ dependencies = [
  "wayland-server",
  "windows-sys 0.61.2",
  "x11rb",
+ "xim-ctext",
 ]
 
 [[package]]

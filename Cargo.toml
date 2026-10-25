@@ -45,6 +45,7 @@ wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 x11rb = { version = "0.13", features = ["randr"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+xim-ctext = "=0.3.0"
 wayland-protocols = { version = "0.32", features = ["server", "staging"] }
 wayland-server = "0.31"
 

@@ -59,18 +59,27 @@ jobs:
 
   linux:
     needs: prepare
-    # linux-tar.sh builds on Debian 12's glibc inside Docker, which a hosted runner holds.
+    # linux-packages.sh builds on Ubuntu 22.04's glibc inside Docker, which a hosted runner holds.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - run: scripts/linux-tar.sh
-      - name: Put the tarball on the release
+      - run: scripts/linux-packages.sh
+      - name: Put the four packages and their checksums on the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          tar=$(ls target/release/Ztty-"$VERSION"-linux-*.tar.gz)
-          gh release upload "v$VERSION" "$tar" --clobber
+          shasum="target/release/Ztty-$VERSION-linux-x86_64.sha256"
+          for file in \
+            "target/release/Ztty-$VERSION-linux-x86_64.tar.gz" \
+            "target/release/ztty_${VERSION}_amd64.deb" \
+            "target/release/Ztty-$VERSION-linux-x86_64.AppImage" \
+            "target/release/ztty-$VERSION-1.x86_64.rpm" \
+            "$shasum"
+          do
+            [ -f "$file" ] || { echo "release: no $file" >&2; exit 1; }
+            gh release upload "v$VERSION" "$file" --clobber
+          done
 
   macos:
     needs: prepare

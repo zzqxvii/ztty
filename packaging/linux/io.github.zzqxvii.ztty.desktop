@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ztty
+Comment=A terminal on GPUI and Ely
+Exec=ztty
+Icon=io.github.zzqxvii.ztty
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=io.github.zzqxvii.ztty
