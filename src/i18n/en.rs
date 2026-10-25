@@ -136,7 +136,6 @@ pub const MESSAGES: &[(&str, &str)] = &[
     ("workspace.show_panel", "Show Git and Files"),
     ("workspace.new_tab", "New terminal tab"),
     ("workspace.close_tab", "Close tab"),
-    ("workspace.current_folder", "Current folder"),
     ("workspace.settings", "Settings"),
     ("workspace.remove_project", "Remove project"),
     ("workspace.add_project", "Add project"),

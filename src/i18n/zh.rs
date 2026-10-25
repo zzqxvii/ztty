@@ -133,7 +133,6 @@ pub const MESSAGES: &[(&str, &str)] = &[
     ("workspace.show_panel", "显示文件和 Git 栏"),
     ("workspace.new_tab", "新建终端标签页"),
     ("workspace.close_tab", "关闭标签页"),
-    ("workspace.current_folder", "当前文件夹"),
     ("workspace.settings", "设置"),
     ("workspace.remove_project", "移除项目"),
     ("workspace.add_project", "添加项目"),

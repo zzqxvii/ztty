@@ -49,7 +49,7 @@ enum Tab { Terminal(session), File(PathBuf), Diff(PathBuf) }
 - **worktree 行**:缩进;状态点(该项目下所有终端的聚合,沿用现有 3×3 视觉);分支名,无分支时用文件夹名;主检出带 `⌂`。
 - 选中 worktree:切中栏到它上次的活动标签;没有就新开终端。
 - 底部 `+ Add project`:文件夹选择器,校验存在/是目录/可读,去重。
-- 空状态:`projects` 为空时左栏只显示 Add project;中栏仍按 Start in/home 开一个临时终端(不属于任何项目,退出即消失)。
+- 空列表:启动时或删掉最后一个项目后,`projects` 为空,把 home 作为普通项目加回、写进设置并选中,在其中开一个终端;只有 home 单独存在时它的 `×` 隐藏,最后一个普通项目仍可删,删掉后 home 立刻补回。home 与普通项目一样有 worktree、删除确认和 Files/Git;它被选中时右栏跟随 home,并递归监听 home。
 - 左栏宽度、`Cmd-B` 开关、Ely 的 `ColumnShell` 不变。
 
 ## 5. 中栏

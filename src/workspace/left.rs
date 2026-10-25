@@ -35,7 +35,11 @@ pub(super) fn body(
     let mut rows: Vec<AnyElement> = Vec::new();
     for (index, project) in this.projects.iter().enumerate() {
         let holds = this.shown.project == index;
-        rows.push(project_row(workspace, index, project, holds, home, cx));
+        let only_home = this.projects.len() == 1
+            && home.is_some_and(|home| projects::same(home, &project.path));
+        rows.push(project_row(
+            workspace, index, project, holds, only_home, home, cx,
+        ));
         if project.collapsed {
             continue;
         }
@@ -112,6 +116,7 @@ fn project_row(
     index: usize,
     project: &ProjectView,
     holds: bool,
+    only_home: bool,
     home: Option<&Path>,
     cx: &App,
 ) -> AnyElement {
@@ -128,11 +133,7 @@ fn project_row(
         .text_size(theme.text_size(TextSize::Base))
         .line_height(relative(1.4))
         .font_weight(FontWeight::SEMIBOLD)
-        .text_color(if project.saved {
-            colors.fg
-        } else {
-            colors.fg_muted
-        })
+        .text_color(colors.fg)
         .truncate()
         .child(project.name.clone());
     let error = project.error.clone().map(|error| {
@@ -144,7 +145,6 @@ fn project_row(
             .child(error)
     });
     let pressed = workspace.clone();
-    let remove = workspace.clone();
     let make = workspace.clone();
     // Only a repository git named can take a worktree.
     let new_worktree = project.repository.then(|| {
@@ -155,6 +155,21 @@ fn project_row(
             .on_click(move |_, window, cx| {
                 cx.stop_propagation();
                 make.update(cx, |this, cx| this.ask_worktree(index, window, cx))
+            })
+    });
+    // A lone home folder stays listed, so it takes no remove button.
+    let remove = (!only_home).then(|| {
+        let remove = workspace.clone();
+        IconButton::new(("remove-project", index), IconName::X)
+            .variant(ButtonVariant::Ghost)
+            .size(ControlSize::Sm)
+            .tooltip(text(cx, "workspace.remove_project", &[]))
+            .on_click(move |_, _, cx| {
+                cx.stop_propagation();
+                remove.update(cx, |this, cx| {
+                    this.removing = Some(index);
+                    cx.notify();
+                })
             })
     });
     let row = div()
@@ -205,19 +220,7 @@ fn project_row(
                 .opacity(0.)
                 .group_hover(format!("project-{index}"), |style| style.opacity(1.))
                 .children(new_worktree)
-                .child(
-                    IconButton::new(("remove-project", index), IconName::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ControlSize::Sm)
-                        .tooltip(text(cx, "workspace.remove_project", &[]))
-                        .on_click(move |_, _, cx| {
-                            cx.stop_propagation();
-                            remove.update(cx, |this, cx| {
-                                this.removing = Some(index);
-                                cx.notify();
-                            })
-                        }),
-                ),
+                .children(remove),
         );
     div()
         .id(("project", index))

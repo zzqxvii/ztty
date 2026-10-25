@@ -6,20 +6,13 @@ use ely_gpui_component::overlays::ConfirmDialog;
 use gpui::{App, Context, PathPromptOptions, Window};
 
 use super::Workspace;
-use crate::{
-    i18n::text,
-    projects::{self, Worktree},
-    settings::SettingsStore,
-    worktree::WorktreeView,
-};
+use crate::{i18n::text, projects, settings::SettingsStore, worktree::WorktreeView};
 
 /// A project the left column lists, with the runtime of each of its worktrees.
 pub struct ProjectView {
     pub path: PathBuf,
     pub name: String,
     pub error: Option<String>,
-    /// A project the settings hold; a scratch one is not saved.
-    pub saved: bool,
     /// Whether git named its worktrees, so a new one can be made of it.
     pub repository: bool,
     pub collapsed: bool,
@@ -33,27 +26,8 @@ impl ProjectView {
             path: project.path,
             name: project.name,
             error: project.error,
-            saved: true,
             repository: project.repository,
             collapsed: false,
-        }
-    }
-
-    /// The start folder as the one project while the settings list none.
-    pub(super) fn scratch(folder: PathBuf, name: String) -> Self {
-        let worktree = Worktree {
-            path: folder.clone(),
-            branch: None,
-            default: true,
-        };
-        Self {
-            path: folder,
-            name,
-            error: None,
-            saved: false,
-            repository: false,
-            collapsed: false,
-            worktrees: vec![WorktreeView::new(&worktree)],
         }
     }
 
@@ -120,7 +94,7 @@ impl Workspace {
         if self
             .projects
             .iter()
-            .any(|held| held.saved && projects::same(&held.path, &path))
+            .any(|held| projects::same(&held.path, &path))
         {
             log::info!("app: {path:?} is already listed");
             return;
@@ -139,10 +113,7 @@ impl Workspace {
             log::error!("app: the project is not kept: {error:#}");
             return;
         }
-        let first = !self.projects.iter().any(|project| project.saved);
-        if first {
-            self.projects.clear();
-        }
+        let first = self.projects.is_empty();
         log::info!("app: project {} added", path.display());
         self.projects.push(ProjectView::new(found));
         if first {
@@ -169,7 +140,6 @@ impl Workspace {
             return;
         };
         let name = project.name.clone();
-        let saved = project.saved;
         let path = project.path.clone();
         let removed = self.projects.remove(index);
         let pids: Vec<u32> = removed
@@ -182,19 +152,21 @@ impl Workspace {
             log::info!("app: terminal {pid} closes with its project");
         }
         log::info!("app: project {name} removed");
-        if saved
-            && let Err(error) = SettingsStore::update(cx, |settings| {
-                settings
-                    .projects
-                    .retain(|held| !projects::same(held, &path));
-            })
-        {
+        if let Err(error) = SettingsStore::update(cx, |settings| {
+            settings
+                .projects
+                .retain(|held| !projects::same(held, &path));
+        }) {
             log::error!("app: the removal is not kept: {error:#}");
         }
         if self.projects.is_empty() {
-            let home = dirs::home_dir().unwrap_or_default();
-            let name = crate::i18n::text(cx, "workspace.current_folder", &[]).to_string();
-            self.projects.push(ProjectView::scratch(home, name));
+            if self.seed_home(cx) {
+                self.select_worktree(0, 0, window, cx);
+                return;
+            }
+            log::info!("app: no project left and no home folder; the window closes");
+            window.remove_window();
+            return;
         }
         let project = self.shown.project.min(self.projects.len() - 1);
         let worktree = self
@@ -202,16 +174,41 @@ impl Workspace {
             .worktree
             .min(self.projects[project].worktrees.len().saturating_sub(1));
         self.shown = Shown { project, worktree };
-        if self.terminals().is_empty() {
-            log::info!("app: no terminal left; the window closes");
-            window.remove_window();
-            return;
-        }
-        if self.worktree().is_some_and(|view| view.tabs.is_empty()) {
-            self.open_at_worktree(window, cx);
-            return;
-        }
+        // A removal keeps the window while a project is left; the next worktree takes a terminal.
         self.select_worktree(project, worktree, window, cx);
+        if self.terminals().is_empty() {
+            self.open_at_worktree(window, cx);
+        }
+    }
+
+    /// Adds the home folder as a saved project when the list is empty; false when there is no home folder.
+    pub(super) fn seed_home(&mut self, cx: &mut Context<Self>) -> bool {
+        if !self.projects.is_empty() {
+            return true;
+        }
+        let Some(home) = dirs::home_dir() else {
+            log::error!("app: no home folder for the default project");
+            return false;
+        };
+        if let Err(error) = SettingsStore::update(cx, |settings| {
+            settings.projects = vec![home.clone()];
+        }) {
+            log::error!("app: the default project is not kept: {error:#}");
+        }
+        let mut project = projects::Project::new(home.clone());
+        project.discover();
+        if let Some(error) = &project.error {
+            log::warn!(
+                "app: the default project {} cannot be read: {error}",
+                home.display()
+            );
+        }
+        log::info!(
+            "app: the list was empty; {} is the default project",
+            home.display()
+        );
+        self.projects.push(ProjectView::new(project));
+        true
     }
 
     /// Shows the next worktree, or the one before, round the ends.

@@ -11,7 +11,6 @@ use crate::{
     blur::Blur,
     files::{Files, Opened},
     git::panel::{Acted, GitPanel, Opened as DiffOpened, Pane},
-    i18n::text,
     projects,
     sessions::Session,
     settings::{PanelTab, Settings, SettingsStore},
@@ -76,14 +75,10 @@ impl Workspace {
     pub fn new(first: Option<Launch>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let settings = SettingsStore::get(cx);
         let home = dirs::home_dir().unwrap_or_default();
-        let mut projects: Vec<ProjectView> = projects::load(&settings.projects)
+        let projects: Vec<ProjectView> = projects::load(&settings.projects)
             .into_iter()
             .map(ProjectView::new)
             .collect();
-        if projects.is_empty() {
-            let name = text(cx, "workspace.current_folder", &[]).to_string();
-            projects.push(ProjectView::scratch(home.clone(), name));
-        }
         let folder = projects
             .first()
             .and_then(|project| project.worktrees.first())
@@ -145,6 +140,9 @@ impl Workspace {
             _diffed: diffed,
             _activation: activation,
         };
+        if workspace.projects.is_empty() {
+            workspace.seed_home(cx);
+        }
         match first {
             Some(launch) => workspace.open_launch(launch, window, cx),
             None => workspace.select_worktree(0, 0, window, cx),
