@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use ely_gpui_component::{
     buttons::SegmentedControl,
@@ -101,10 +101,13 @@ pub struct SettingsWindow {
     /// The language the inputs' hints are written in.
     language: String,
     shell: Entity<TextInput>,
+    /// Start in's own folder, typed or browsed.
+    folder: Entity<TextInput>,
     /// The shortcut list's search.
     search: Entity<TextInput>,
-    /// Why the typed shell is not saved.
+    /// Why the typed shell, and the typed folder, are not saved.
     refused: Option<SharedString>,
+    refused_folder: Option<SharedString>,
     /// Why the last change did not save.
     failed: Option<SharedString>,
     /// Refusals so far; a field keyed by it drops its draft and shows the settings again.
@@ -118,7 +121,7 @@ pub struct SettingsWindow {
     adding: bool,
     /// Whether the cursor preview shows, as it blinks.
     lit: bool,
-    _typed: Subscription,
+    _typed: [Subscription; 2],
     _settings: Subscription,
     _updates: Subscription,
     _blink: Task<()>,
@@ -133,17 +136,32 @@ impl SettingsWindow {
             input.set_text(SettingsStore::get(cx).shell.clone(), cx);
             input
         });
+        let folder = cx.new(|cx| {
+            let mut input = TextInput::new(window, cx);
+            input.set_text(SettingsStore::get(cx).start_folder.clone(), cx);
+            input
+        });
         let font = cx.new(|cx| TextInput::new(window, cx));
         let editor_font = cx.new(|cx| TextInput::new(window, cx));
         let search = cx.new(|cx| {
             TextInput::new(window, cx).placeholder(text(cx, "settings.shortcuts.search", &[]))
         });
-        let typed = cx.subscribe(&shell, |this, input, event: &InputEvent, cx| {
-            if let InputEvent::Changed = event {
-                let shell = input.read(cx).text().to_string();
-                this.save_shell(shell, cx);
-            }
-        });
+        let typed = [
+            cx.subscribe(&shell, |this, input, event: &InputEvent, cx| {
+                if let InputEvent::Changed = event {
+                    let shell = input.read(cx).text().to_string();
+                    let put = |settings: &mut Settings, shell| settings.shell = shell;
+                    this.refused = this.save_typed("shell", shell, put, cx);
+                }
+            }),
+            cx.subscribe(&folder, |this, input, event: &InputEvent, cx| {
+                if let InputEvent::Changed = event {
+                    let folder = input.read(cx).text().to_string();
+                    let put = |settings: &mut Settings, folder| settings.start_folder = folder;
+                    this.refused_folder = this.save_typed("start_folder", folder, put, cx);
+                }
+            }),
+        ];
         // Focus inside, so the window's keys find its context.
         let focus = cx.focus_handle();
         window.focus(&focus, cx);
@@ -152,8 +170,10 @@ impl SettingsWindow {
             section: SECTIONS[0].0.into(),
             language,
             shell,
+            folder,
             search,
             refused: None,
+            refused_folder: None,
             failed: None,
             drafts: 0,
             font,
@@ -207,20 +227,46 @@ impl SettingsWindow {
         })
     }
 
-    /// Saves `shell` when it names a program; else says why and keeps the saved one.
-    fn save_shell(&mut self, shell: String, cx: &mut Context<Self>) {
-        self.refused = match SettingsStore::update(cx, |settings| settings.shell = shell.clone()) {
+    /// Saves a typed `value` through `put` when the settings take it; else says why and keeps the saved one.
+    fn save_typed(
+        &mut self,
+        field: &'static str,
+        value: String,
+        put: impl FnOnce(&mut Settings, String),
+        cx: &mut Context<Self>,
+    ) -> Option<SharedString> {
+        let refused = match SettingsStore::update(cx, |settings| put(settings, value.clone())) {
             Ok(()) => {
-                log::info!("settings: new sessions run {shell:?}");
+                log::info!("settings: {field} is {value:?}");
                 self.failed = None;
                 None
             }
             Err(error) => {
-                log::debug!("settings: the shell stays: {error:#}");
+                log::debug!("settings: {field} stays: {error:#}");
                 Some(format!("{error:#}").into())
             }
         };
         cx.notify();
+        refused
+    }
+
+    /// Puts Browse's pick for `field` into its input, which saves it; a path not in UTF-8 is refused here.
+    pub(super) fn chosen(&mut self, field: &'static str, path: PathBuf, cx: &mut Context<Self>) {
+        let (input, refused) = match field {
+            "shell" => (self.shell.clone(), &mut self.refused),
+            "start_folder" => (self.folder.clone(), &mut self.refused_folder),
+            other => unreachable!("settings: no path field {other}"),
+        };
+        let Some(text) = path.to_str() else {
+            let why = format!(
+                "{field} is {}, not in UTF-8, which the settings cannot hold",
+                path.display()
+            );
+            log::error!("settings: {why}");
+            *refused = Some(why.into());
+            return cx.notify();
+        };
+        input.update(cx, |input, cx| input.set_text(text, cx));
     }
 
     /// A field over `range`, by `step` to `places`, that saves each committed number through `put`; a refusal starts it again from the settings.

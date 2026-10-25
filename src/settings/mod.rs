@@ -15,13 +15,14 @@ use crate::{projects, themes};
 
 pub use store::{SettingsStore, load, save};
 
-/// Where a new session starts.
+/// Where a new session starts: home, the shown session's folder, or `start_folder`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StartIn {
     #[default]
     Home,
     Session,
+    Folder,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +67,8 @@ pub struct Settings {
     /// A program path; empty runs the login shell.
     pub shell: String,
     pub start_in: StartIn,
+    /// The folder Start in's Folder names; empty until one is chosen.
+    pub start_folder: String,
     pub theme: String,
     /// The theme while the system is dark; none keeps `theme`.
     pub dark_theme: Option<String>,
@@ -113,6 +116,7 @@ impl Default for Settings {
             locale: crate::i18n::system().into(),
             shell: String::new(),
             start_in: StartIn::Home,
+            start_folder: String::new(),
             theme: themes::default_id().into(),
             dark_theme: None,
             font_family: "JetBrains Mono".into(),
@@ -209,8 +213,29 @@ impl Settings {
         if !self.shell.is_empty() {
             program_path(&self.shell)?;
         }
+        if !self.start_folder.is_empty() {
+            start_folder(&self.start_folder)?;
+        }
+        anyhow::ensure!(
+            self.start_in != StartIn::Folder || !self.start_folder.is_empty(),
+            "start_in is folder, but start_folder names none"
+        );
         Ok(())
     }
+}
+
+/// The folder `folder` names for sessions to start in: a full path to one that exists.
+pub fn start_folder(folder: &str) -> anyhow::Result<PathBuf> {
+    let path = Path::new(folder);
+    anyhow::ensure!(
+        path.is_absolute(),
+        "start_folder is {folder:?}, not a full path"
+    );
+    anyhow::ensure!(
+        path.is_dir(),
+        "start_folder is {folder:?}, which names no folder"
+    );
+    Ok(path.to_path_buf())
 }
 
 /// The program `shell` names, as a session starts it: a file at a full path, or the first in `PATH`'s full folders.

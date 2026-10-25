@@ -311,10 +311,7 @@ impl TerminalView {
         if drawn {
             let kitty = *self.pty.term.lock().mode() & TermMode::KITTY_KEYBOARD_PROTOCOL;
             if kitty != self.kitty {
-                log::debug!(
-                    "terminal {}: kitty keyboard flags {kitty:?}",
-                    self.pty.pid
-                );
+                log::debug!("terminal {}: kitty keyboard flags {kitty:?}", self.pty.pid);
                 self.kitty = kitty;
             }
         }

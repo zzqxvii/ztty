@@ -119,6 +119,50 @@ fn a_shell_names_a_program_or_none() {
     }
 }
 
+#[test]
+fn a_start_folder_is_a_full_path_to_one_and_the_folder_start_needs_it() {
+    let folder = std::env::temp_dir().join(format!("ztty-start-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).expect("a folder");
+    let text = folder.to_str().expect("text").to_string();
+    let start = |start_in: StartIn, start_folder: &str| Settings {
+        start_in,
+        start_folder: start_folder.into(),
+        ..Settings::default()
+    };
+    assert!(start(StartIn::Folder, &text).validate().is_ok(), "a folder");
+    assert!(
+        start(StartIn::Home, "").validate().is_ok(),
+        "home names none"
+    );
+    assert!(
+        start(StartIn::Session, &text).validate().is_ok(),
+        "a kept folder"
+    );
+    let error = start(StartIn::Folder, "")
+        .validate()
+        .expect_err("no folder");
+    assert_eq!(
+        error.to_string(),
+        "start_in is folder, but start_folder names none"
+    );
+    let error = start(StartIn::Home, "relative")
+        .validate()
+        .expect_err("a relative path");
+    assert_eq!(
+        error.to_string(),
+        "start_folder is \"relative\", not a full path"
+    );
+    let missing = folder.join("missing").to_str().expect("text").to_string();
+    let error = start(StartIn::Home, &missing)
+        .validate()
+        .expect_err("no folder there");
+    assert_eq!(
+        error.to_string(),
+        format!("start_folder is {missing:?}, which names no folder")
+    );
+    std::fs::remove_dir_all(&folder).expect("cleanup");
+}
+
 #[cfg(unix)]
 #[test]
 fn a_shell_runs_for_this_user_from_a_full_folder() {

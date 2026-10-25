@@ -75,6 +75,12 @@ pub const MESSAGES: &[(&str, &str)] = &[
     ("settings.start_in", "Start in"),
     ("settings.start_in.home", "Home"),
     ("settings.start_in.session", "Session's folder"),
+    ("settings.start_in.folder", "Folder"),
+    ("settings.start_folder", "Start folder"),
+    (
+        "settings.start_folder_hint",
+        "Where a session starts while Start in is Folder.",
+    ),
     ("settings.scrollback", "Scrollback lines"),
     ("settings.option_as_alt", "Option as Alt"),
     ("option.off", "Off"),

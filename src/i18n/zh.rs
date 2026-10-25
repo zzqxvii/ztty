@@ -75,6 +75,12 @@ pub const MESSAGES: &[(&str, &str)] = &[
     ("settings.start_in", "启动目录"),
     ("settings.start_in.home", "主目录"),
     ("settings.start_in.session", "当前会话目录"),
+    ("settings.start_in.folder", "指定目录"),
+    ("settings.start_folder", "启动目录"),
+    (
+        "settings.start_folder_hint",
+        "启动目录选为“指定目录”时，新会话在这里启动。",
+    ),
     ("settings.scrollback", "回滚行数"),
     ("settings.option_as_alt", "Option 作为 Alt"),
     ("option.off", "关闭"),

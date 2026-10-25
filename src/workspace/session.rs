@@ -1,36 +1,35 @@
-use std::path::PathBuf;
-
 use gpui::{AppContext, Context, EntityId, Window};
 
 use super::Workspace;
 use crate::{
     sessions::Session,
-    settings::{SettingsStore, StartIn},
+    settings::{self, SettingsStore, StartIn},
     term::{
         Events, Launch, Pty, TerminalView, config,
-        shell::{ShellIntegration, launch},
+        shell::{ShellIntegration, Start, launch},
         spawn,
     },
 };
 
 impl Workspace {
-    /// A terminal tab in the shown worktree: the shell the settings name, in home or the shown terminal's folder.
+    /// A terminal tab in the shown worktree: the shell the settings name, where Start in says.
     pub(super) fn open_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(home) = dirs::home_dir() else {
-            log::error!("app: no home folder, so no new terminal");
-            return;
-        };
         let Some(root) = self.worktree().map(|view| view.path.clone()) else {
             log::error!("app: no worktree is shown, so no new terminal");
             return;
         };
-        let folder = match SettingsStore::get(cx).start_in {
-            StartIn::Home => home,
+        let settings = SettingsStore::get(cx);
+        let start = match settings.start_in {
+            StartIn::Home => Start::Home,
             StartIn::Session => self
                 .shown_terminal()
-                .map_or(root, |session| session.folder.clone()),
+                .map_or(Start::In(root), |session| Start::In(session.folder.clone())),
+            StartIn::Folder => match settings::start_folder(&settings.start_folder) {
+                Ok(folder) => Start::In(folder),
+                Err(error) => return log::error!("app: no new terminal: {error:#}"),
+            },
         };
-        self.open_at(folder, window, cx);
+        self.open_at(start, window, cx);
     }
 
     /// A terminal in the shown worktree's own folder.
@@ -38,7 +37,7 @@ impl Workspace {
         let Some(root) = self.worktree().map(|view| view.path.clone()) else {
             return;
         };
-        self.open_at(root, window, cx);
+        self.open_at(Start::In(root), window, cx);
     }
 
     /// Runs `launch` as a tab of the shown worktree, as `shot` asks.
@@ -50,9 +49,9 @@ impl Workspace {
         }
     }
 
-    fn open_at(&mut self, folder: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_at(&mut self, start: Start, window: &mut Window, cx: &mut Context<Self>) {
         let settings = SettingsStore::get(cx);
-        let started = launch(&settings.shell, folder, &cx.global::<ShellIntegration>().0)
+        let started = launch(&settings.shell, start, &cx.global::<ShellIntegration>().0)
             .and_then(|launch| Ok((spawn(&launch, (80, 24), (8, 16), config(settings))?, launch)));
         match started {
             Ok(((pty, events), launch)) => self.add(pty, events, launch, window, cx),

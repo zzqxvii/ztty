@@ -76,8 +76,25 @@ pub fn install(dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// How to start `shell`, or the login shell when empty, in `cwd` so it reports its folder.
-pub fn launch(shell: &str, cwd: PathBuf, dir: &Path) -> anyhow::Result<Launch> {
+/// Where a session starts: home, which a `wsl` session takes as its distribution's own, or a folder.
+pub enum Start {
+    Home,
+    In(PathBuf),
+}
+
+impl From<PathBuf> for Start {
+    fn from(folder: PathBuf) -> Self {
+        Self::In(folder)
+    }
+}
+
+/// How to start `shell`, or the login shell when empty, at `start` so it reports its folder.
+pub fn launch(shell: &str, start: impl Into<Start>, dir: &Path) -> anyhow::Result<Launch> {
+    let start = start.into();
+    let cwd = match &start {
+        Start::Home => dirs::home_dir().context("shell integration: no home folder")?,
+        Start::In(folder) => folder.clone(),
+    };
     let path = if shell.is_empty() {
         default_shell()?
     } else {
@@ -153,8 +170,13 @@ pub fn launch(shell: &str, cwd: PathBuf, dir: &Path) -> anyhow::Result<Launch> {
         #[cfg(windows)]
         "wsl" => {
             let launcher = r#"exec /bin/sh "$ZTTY_WSL/wsl/ztty.sh""#;
-            let args = ["-e", "/bin/sh", "-c", launcher].map(String::from);
-            launch.program = Some((path.clone(), args.to_vec()));
+            let mut args: Vec<String> = ["-e", "/bin/sh", "-c", launcher].map(String::from).into();
+            // Home is the distribution's own, which WSL resolves, not Windows'.
+            if matches!(start, Start::Home) {
+                args.splice(0..0, ["--cd".to_string(), "~".to_string()]);
+                log::info!("shell integration: wsl starts in its distribution's home");
+            }
+            launch.program = Some((path.clone(), args));
             let shared = super::env::fresh()?.get("WSLENV").map(str::to_string);
             let shared = shared.map_or("ZTTY_WSL/p".into(), |list| format!("{list}:ZTTY_WSL/p"));
             launch
@@ -241,7 +263,7 @@ mod windows_tests {
     use alacritty_terminal::event::Event;
     use futures::channel::mpsc::TryRecvError;
 
-    use super::{SCRIPTS, alias, first_shell, git_bash, install, launch};
+    use super::{SCRIPTS, Start, alias, first_shell, git_bash, install, launch};
     use crate::{
         settings::Settings,
         term::{Events, PtyEvent, config, spawn},
@@ -256,6 +278,18 @@ mod windows_tests {
         {
             assert!(!text.contains('\r'), "{name} holds a carriage return");
         }
+    }
+
+    #[test]
+    fn wsl_starts_in_its_distribution_s_home_or_in_the_folder_given() {
+        let dir = std::env::temp_dir().join(format!("ztty-wsl-launch-{}", std::process::id()));
+        let home = launch("wsl", Start::Home, &dir).expect("a launch");
+        let (_, args) = home.program.expect("wsl");
+        assert_eq!(args[..3], ["--cd", "~", "-e"]);
+        let folder = std::path::PathBuf::from(r"C:\Windows");
+        let there = launch("wsl", Start::In(folder.clone()), &dir).expect("a launch");
+        assert_eq!(there.cwd, folder);
+        assert_eq!(there.program.expect("wsl").1[0], "-e");
     }
 
     #[test]
