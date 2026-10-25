@@ -2,8 +2,11 @@
 
 use std::path::{Path, PathBuf};
 
-use ely_gpui_component::{forms::TextInput, overlays::PromptDialog};
-use gpui::{AppContext, Context, Entity, PathPromptOptions, SharedString, Window};
+use ely_gpui_component::{
+    forms::TextInput,
+    overlays::{ConfirmDialog, PromptDialog},
+};
+use gpui::{App, AppContext, Context, Entity, PathPromptOptions, SharedString, Window};
 
 use super::Workspace;
 use crate::{
@@ -388,5 +391,51 @@ impl Workspace {
             return;
         }
         self.select_worktree(project, worktree, window, cx);
+    }
+
+    /// Shows the next worktree, or the one before, round the ends.
+    pub(super) fn step_worktree(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let rows = self.rows();
+        if rows.is_empty() {
+            return;
+        }
+        let now = rows
+            .iter()
+            .position(|&row| row == (self.shown.project, self.shown.worktree));
+        let by = if forward { 1 } else { rows.len() - 1 };
+        let at = now.map_or(0, |at| (at + by) % rows.len());
+        self.select_worktree(rows[at].0, rows[at].1, window, cx);
+    }
+
+    /// The question before a project leaves the left column.
+    pub(super) fn removal(&self, cx: &Context<Self>) -> Option<ConfirmDialog> {
+        let index = self.removing?;
+        let name = self.projects.get(index)?.name.clone();
+        let close = cx.entity();
+        let confirm = cx.entity();
+        let dialog = ConfirmDialog::new(
+            "remove-project",
+            text(cx, "workspace.remove_title", &[("name", &name)]),
+            text(cx, "workspace.remove_body", &[]).to_string(),
+            move |_, cx| {
+                close.update(cx, |this, cx| {
+                    this.removing = None;
+                    cx.notify();
+                });
+            },
+        );
+        Some(
+            dialog
+                .confirm(text(cx, "workspace.remove_confirm", &[]))
+                .destructive()
+                .on_confirm(move |window: &mut Window, cx: &mut App| {
+                    confirm.update(cx, |this, cx| this.remove_project(index, window, cx));
+                }),
+        )
     }
 }

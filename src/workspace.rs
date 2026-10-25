@@ -3,9 +3,8 @@ use std::{
     time::Instant,
 };
 
-use ely_gpui_component::overlays::ConfirmDialog;
 use gpui::{
-    App, AppContext, Context, Entity, EntityId, FocusHandle, Focusable, Subscription, Task, Window,
+    AppContext, Context, Entity, EntityId, FocusHandle, Focusable, Subscription, Task, Window,
 };
 
 use crate::{
@@ -466,46 +465,5 @@ impl Workspace {
         };
         self.git.update(cx, |git, cx| git.pane(half, cx));
         cx.notify();
-    }
-
-    /// Shows the next worktree, or the one before, round the ends.
-    fn step_worktree(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let rows = self.rows();
-        if rows.is_empty() {
-            return;
-        }
-        let now = rows
-            .iter()
-            .position(|&row| row == (self.shown.project, self.shown.worktree));
-        let by = if forward { 1 } else { rows.len() - 1 };
-        let at = now.map_or(0, |at| (at + by) % rows.len());
-        self.select_worktree(rows[at].0, rows[at].1, window, cx);
-    }
-
-    /// The question before a project leaves the left column.
-    fn removal(&self, cx: &Context<Self>) -> Option<ConfirmDialog> {
-        let index = self.removing?;
-        let name = self.projects.get(index)?.name.clone();
-        let close = cx.entity();
-        let confirm = cx.entity();
-        let dialog = ConfirmDialog::new(
-            "remove-project",
-            text(cx, "workspace.remove_title", &[("name", &name)]),
-            text(cx, "workspace.remove_body", &[]).to_string(),
-            move |_, cx| {
-                close.update(cx, |this, cx| {
-                    this.removing = None;
-                    cx.notify();
-                });
-            },
-        );
-        Some(
-            dialog
-                .confirm(text(cx, "workspace.remove_confirm", &[]))
-                .destructive()
-                .on_confirm(move |window: &mut Window, cx: &mut App| {
-                    confirm.update(cx, |this, cx| this.remove_project(index, window, cx));
-                }),
-        )
     }
 }
