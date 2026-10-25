@@ -91,7 +91,7 @@ Ghostty is the bar for what the terminal does. Ztty owns its engine on `alacritt
 - Add project opens the platform's folder picker; a path that is not a readable folder, or is already listed, is refused with a reason. A project whose folder is gone at start stays in the settings with the reason in its row.
 - Selecting a worktree shows its tabs, the one it showed last, and opens a terminal in its root the first time.
 - The middle column holds the worktree's tabs: terminals, read-only files and diffs, in the window's top row beside the drag space, the shown one marked by a line under it, each closable, and draggable. A strip too long for its room scrolls with the wheel and brings the shown tab into view; a + after the strip opens a terminal tab, and stays in reach while the strip scrolls.
-- New terminal tab opens the Shell setting's program, in home or the shown terminal's folder as Start in says; a worktree's first terminal starts in the worktree's root.
+- New terminal tab opens the Shell setting's program, in home, the shown terminal's folder or a folder the settings name, as Start in says; a `wsl` session whose Start in is Home starts in its distribution's home. A worktree's first terminal starts in the worktree's root.
 - A file tab shows a UTF-8 text file read-only, in the Files font and size, with Ely's code editor; a binary file says so, a file over 2 MiB shows its first 2 MiB with a line saying so, and a failure says why. Opening the same path shows the tab it has, and every file tab is read again when the window comes back active.
 - A diff tab shows a change's diff from the Git panel in Ely's diff viewer, unified or split, and reads it again after each Git action.
 - Closing the app's last terminal closes the window and the app.
@@ -134,7 +134,7 @@ Cmd-, opens it; on Windows and Linux, which have no menu bar, so does a gear at 
 - Cursor: style (block, bar, underline, hollow), blink, with a live preview.
 - Terminal
   - Shell: a path; empty runs the login shell, on Windows `pwsh`, else `powershell`, else `cmd`. On Windows a session takes the registry's environment as it starts.
-  - Start in: Home, or the active session's folder.
+  - Start in: Home, the active session's folder, or a folder chosen with Browse.
   - Scrollback lines.
 - Input
   - Option as Alt: off, left, right, both (macOS only).
