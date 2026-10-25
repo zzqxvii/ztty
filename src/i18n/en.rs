@@ -150,6 +150,17 @@ pub const MESSAGES: &[(&str, &str)] = &[
         "A branch name holds no space and no ~^:?*[\\ character.",
     ),
     ("workspace.worktree_failed", "The worktree was not made"),
+    (
+        "workspace.worktree_remove_failed",
+        "The worktree was not removed",
+    ),
+    ("workspace.remove_worktree", "Remove worktree"),
+    ("workspace.remove_worktree_title", "Remove worktree {name}?"),
+    (
+        "workspace.remove_worktree_body",
+        "git deletes its folder, and its terminals close. Its branch stays.",
+    ),
+    ("workspace.remove_worktree_confirm", "Remove"),
     ("files.unreadable", "unreadable"),
     ("file.reading", "Reading…"),
     ("file.binary", "Binary file"),

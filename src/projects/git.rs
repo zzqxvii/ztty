@@ -59,6 +59,31 @@ pub fn create(folder: &Path, path: &Path, branch: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Removes the worktree at `path` from `folder`'s repository, its branch left; git refuses one that holds changes.
+pub fn remove(folder: &Path, path: &Path) -> anyhow::Result<()> {
+    let named = format!("projects: `git worktree remove` in {}", folder.display());
+    let mut command = crate::git::command(folder);
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(
+        &mut command,
+        crate::git::CREATE_NO_WINDOW,
+    );
+    let output = command
+        .args(["worktree", "remove"])
+        .arg(path)
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .with_context(|| format!("{named} did not run"))?;
+    if !output.status.success() {
+        let said = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("`git worktree remove` failed: {}", said.trim());
+    }
+    Ok(())
+}
+
 /// One worktree as git's porcelain lists it.
 #[derive(Default)]
 struct Record {
@@ -299,6 +324,51 @@ mod tests {
         assert_eq!(found.len(), 2, "{found:?}");
         assert_eq!(found[1].branch.as_deref(), Some("made"));
         assert_eq!(found[1].path.file_name(), other.file_name());
+        run(
+            &folder,
+            &["worktree", "remove", "--force", other.to_str().unwrap()],
+        );
+        fs::remove_dir_all(&folder).expect("cleanup");
+    }
+
+    #[test]
+    fn a_worktree_leaves_and_its_branch_stays() {
+        let folder = repository("remove");
+        let other = folder.with_file_name(format!(
+            "{}-gone",
+            folder.file_name().unwrap().to_string_lossy()
+        ));
+        let _ = fs::remove_dir_all(&other);
+        create(&folder, &other, "gone").expect("a worktree is made");
+        remove(&folder, &other).expect("the worktree is removed");
+        assert!(!other.exists(), "the folder went with it");
+        let found = worktrees(&folder).expect("a repository");
+        assert_eq!(found.len(), 1, "{found:?}");
+        let branches = Command::new("git")
+            .current_dir(&folder)
+            .args(["branch", "--list", "gone"])
+            .output()
+            .expect("git runs");
+        assert!(
+            String::from_utf8_lossy(&branches.stdout).contains("gone"),
+            "the branch stays"
+        );
+        fs::remove_dir_all(&folder).expect("cleanup");
+    }
+
+    #[test]
+    fn a_worktree_holding_changes_stays() {
+        let folder = repository("dirty");
+        let other = folder.with_file_name(format!(
+            "{}-dirty",
+            folder.file_name().unwrap().to_string_lossy()
+        ));
+        let _ = fs::remove_dir_all(&other);
+        create(&folder, &other, "dirty").expect("a worktree is made");
+        fs::write(other.join("notes.txt"), "x").expect("a file");
+        let error = remove(&folder, &other).expect_err("git refuses it");
+        assert!(error.to_string().contains("worktree remove"), "{error}");
+        assert!(other.exists(), "the folder stays");
         run(
             &folder,
             &["worktree", "remove", "--force", other.to_str().unwrap()],

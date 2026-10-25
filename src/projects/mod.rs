@@ -163,6 +163,11 @@ pub fn make(folder: &Path, path: &Path, branch: &str) -> anyhow::Result<()> {
     git::create(folder, path, branch.trim())
 }
 
+/// Removes the worktree at `path` from `folder`'s repository; its branch stays, and git refuses one that holds changes.
+pub fn remove(folder: &Path, path: &Path) -> anyhow::Result<()> {
+    git::remove(folder, path)
+}
+
 /// Where a worktree on `branch` goes: beside the main checkout, named after it and the branch, each slash a dash.
 pub fn place(main: &Path, branch: &str) -> PathBuf {
     let branch = branch.trim().replace(['/', '\\'], "-");

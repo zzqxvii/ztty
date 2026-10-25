@@ -75,7 +75,7 @@ fn tab_room(
     px(room.max(0.))
 }
 
-/// The right column's three views: Files, git's changes, git's commits./// The right column's three views as quiet icons at its foot: the shown one in the text's color, the others' muted.
+/// The right column's three views as quiet icons at its foot: the shown one in the text's color, the others' muted.
 fn pane_tabs(workspace: &Entity<Workspace>, shown: PanelTab, cx: &App) -> Div {
     let theme = cx.theme();
     let colors = &theme.colors;
@@ -325,6 +325,7 @@ impl Render for Workspace {
                     .child(FocusScope::new(&self.focus).root().size_full().child(shell)),
             )
             .children(self.removal(cx))
+            .children(self.worktree_removal(cx))
             .children(self.asking(cx))
     }
 }

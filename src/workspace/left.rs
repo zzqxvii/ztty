@@ -55,14 +55,14 @@ pub(super) fn body(
         }
     }
     let list = div().flex().flex_col().gap_0p5().children(rows);
-    let failed = this.failed.clone().map(|said| {
+    let failed = this.failed.as_ref().map(|failed| {
         let dismiss = workspace.clone();
         Alert::new(
             "worktree-failed",
             Severity::Danger,
-            text(cx, "workspace.worktree_failed", &[]),
+            text(cx, failed.title, &[]),
         )
-        .body(said)
+        .body(failed.said.clone())
         .on_dismiss(move |_, cx| {
             dismiss.update(cx, |this, cx| {
                 this.failed = None;
@@ -275,8 +275,20 @@ fn worktree_row(
         .truncate()
         .child(worktree.name());
     let pressed = workspace.clone();
+    let remove = (!worktree.default).then(|| {
+        let remove = workspace.clone();
+        IconButton::new(format!("remove-worktree-{project}-{at}"), IconName::X)
+            .variant(ButtonVariant::Ghost)
+            .size(ControlSize::Sm)
+            .tooltip(text(cx, "workspace.remove_worktree", &[]))
+            .on_click(move |_, _, cx| {
+                cx.stop_propagation();
+                remove.update(cx, |this, cx| this.ask_remove_worktree(shown, cx))
+            })
+    });
     let card = div()
         .id(format!("worktree-{project}-{at}"))
+        .group(format!("worktree-{project}-{at}"))
         .role(Role::ListItem)
         .aria_label(worktree.name())
         .aria_selected(is_shown)
@@ -305,7 +317,17 @@ fn worktree_row(
                 .gap_2()
                 .child(mark.unwrap_or(resting))
                 .child(title)
-                .children(main.then(|| Badge::new(text(cx, "workspace.default_badge", &[])))),
+                .children(main.then(|| Badge::new(text(cx, "workspace.default_badge", &[]))))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .opacity(0.)
+                        .group_hover(format!("worktree-{project}-{at}"), |style| {
+                            style.opacity(1.)
+                        })
+                        .children(remove),
+                ),
         )
         .child(line(subtitle(worktree, home), colors.fg_muted, theme));
     match pressing.and_then(|session| activity(session, cx)) {

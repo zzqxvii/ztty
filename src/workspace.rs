@@ -28,14 +28,16 @@ mod tabs;
 mod view;
 mod watch;
 mod widths;
+mod worktree;
 
 pub use keys::{
     CONTEXT, CloseSession, LastSession, NewSession, NextSession, NextTab, PreviousSession,
     PreviousTab, SelectSession, TITLE, TogglePanel, ToggleSessions, bind_keys,
 };
-use project::{Making, ProjectView, Shown};
+use project::{ProjectView, Shown};
 use watch::Watched;
 use widths::Dragged;
+use worktree::{Failed, Making};
 
 /// The main window's content: projects and their worktrees, the middle's tabs, and Git or Files.
 pub struct Workspace {
@@ -54,10 +56,12 @@ pub struct Workspace {
     pending: Option<Shown>,
     /// The project a press asked to remove.
     pub(super) removing: Option<usize>,
+    /// The worktree a press asked to remove.
+    pub(super) removing_worktree: Option<Shown>,
     /// The worktree a project's button asks for, while its prompt is open.
     pub(super) making: Option<Making>,
-    /// Why the last worktree was not made, in git's words, until dismissed.
-    pub(super) failed: Option<String>,
+    /// Why the last worktree change failed, in git's words, until dismissed.
+    pub(super) failed: Option<Failed>,
     /// The shown worktree watched on disk.
     watching: Option<Watched>,
     _settings: Subscription,
@@ -128,6 +132,7 @@ impl Workspace {
             ticking: None,
             pending: None,
             removing: None,
+            removing_worktree: None,
             making: None,
             failed: None,
             watching: None,
