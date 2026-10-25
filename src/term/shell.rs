@@ -88,6 +88,13 @@ impl From<PathBuf> for Start {
     }
 }
 
+/// The name a program runs under: its file's stem, in lower case.
+fn name(path: &Path) -> String {
+    path.file_stem()
+        .map(|stem| stem.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
+}
+
 /// How to start `shell`, or the login shell when empty, at `start` so it reports its folder.
 pub fn launch(shell: &str, start: impl Into<Start>, dir: &Path) -> anyhow::Result<Launch> {
     let start = start.into();
@@ -101,10 +108,7 @@ pub fn launch(shell: &str, start: impl Into<Start>, dir: &Path) -> anyhow::Resul
         // The settings checked this path; the session runs no other.
         crate::settings::program_path(shell).context("shell integration")?
     };
-    let name = Path::new(&path)
-        .file_stem()
-        .map(|stem| stem.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
+    let name = name(Path::new(&path));
     #[cfg(windows)]
     let name = if name == "sh" && git_bash(Path::new(&path)) {
         log::info!("shell integration: {path} is Git for Windows' sh, which runs its bash");
@@ -252,6 +256,11 @@ fn alias(path: &str) -> bool {
         .and_then(Path::file_name)
         .is_some_and(|name| name.eq_ignore_ascii_case("WindowsApps"))
 }
+
+mod options;
+#[cfg(unix)]
+pub(crate) use options::clicks;
+pub(crate) use options::options;
 
 #[cfg(all(test, unix))]
 mod tests;

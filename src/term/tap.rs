@@ -122,11 +122,25 @@ impl<P: EventedReadWrite> Tapped<P> {
         let (events, pid, last) = (&self.events, self.pid, &mut self.last);
         let (kitty, titles, named) = (&mut self.kitty, &mut self.titles, &mut self.named);
         #[cfg(unix)]
-        let holder = || holder(self.master.as_ref(), pid);
+        let (holder, prompts) = (
+            || holder(self.master.as_ref(), pid),
+            |group: Option<i32>, click| group.is_some_and(|group| prompts(group, click, pid)),
+        );
         #[cfg(windows)]
-        let holder = || None;
+        let (holder, prompts) = (
+            || None,
+            |group: Option<i32>, _| group.is_none() && nested(pid),
+        );
         self.scanner.feed(read, &mut |found| {
-            report(found, events, pid, last, (kitty, titles, named), &holder)
+            report(
+                found,
+                events,
+                pid,
+                last,
+                (kitty, titles, named),
+                &holder,
+                &prompts,
+            )
         });
         #[cfg(windows)]
         let win32 = self.modes.win32;
@@ -181,28 +195,7 @@ impl<P: EventedReadWrite> Tapped<P> {
     }
 }
 
-/// The process group that holds the terminal now, by `master`.
-#[cfg(unix)]
-fn holder(master: Option<&std::fs::File>, pid: u32) -> Option<i32> {
-    match super::unix::foreground(master?) {
-        Ok(group) => group,
-        Err(error) => {
-            log::warn!("pty {pid}: no foreground group for a report: {error}");
-            None
-        }
-    }
-}
-
-/// Who holds the terminal at a prompt no integration named, by the foreground `group`: the session's shell, unless it names its own prompts, so this one is a program's that runs in its group, as under PowerShell; another group; or none known.
-fn prompter(group: Option<i32>, pid: u32, named: bool) -> Holder {
-    match group {
-        Some(group) if u32::try_from(group) != Ok(pid) => Holder::Group(group),
-        Some(_) if !named => Holder::Shell,
-        _ => Holder::Unknown,
-    }
-}
-
-/// Sends the session what the scanner found: a full reset, a title, a mark, a program's status or ask with the group `holder` names, or a folder.
+/// Sends the session what the scanner found, with `holder`'s group.
 fn report(
     found: Found,
     events: &UnboundedSender<PtyEvent>,
@@ -210,6 +203,7 @@ fn report(
     last: &mut Option<PathBuf>,
     (kitty, titles, named): (&mut Kitty, &mut Titles, &mut bool),
     holder: &dyn Fn() -> Option<i32>,
+    prompts: &dyn Fn(Option<i32>, marks::Click) -> bool,
 ) {
     let event = match found {
         Found::Reset => {
@@ -229,10 +223,11 @@ fn report(
             if let Some(mark) = body.strip_prefix(b"133;").and_then(marks::read) {
                 let holder = match mark {
                     Mark::Prompt(_) if body.strip_prefix(b"133;").is_some_and(marks::named) => {
-                        *named = true;
+                        // A nested shell's name stays its own.
+                        *named |= holder().is_some_and(|group| u32::try_from(group) == Ok(pid));
                         Holder::Shell
                     }
-                    Mark::Prompt(_) => prompter(holder(), pid, *named),
+                    Mark::Prompt(click) => prompter(click, holder(), pid, *named, prompts),
                     _ => Holder::Unknown,
                 };
                 log::debug!("pty {pid}: {mark:?} held by {holder:?}");
@@ -485,9 +480,15 @@ impl Osc {
 const PARAMS: usize = 32;
 
 mod folder;
+mod holder;
 mod modes;
 #[cfg(test)]
 mod tests;
 
 use folder::folder;
+#[cfg(windows)]
+use holder::nested;
+use holder::prompter;
+#[cfg(unix)]
+use holder::{holder, prompts};
 pub(crate) use modes::Modes;

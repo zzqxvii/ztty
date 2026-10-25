@@ -318,3 +318,10 @@ impl Drop for Pty {
         }
     }
 }
+
+mod procs;
+#[cfg(all(test, target_os = "linux"))]
+pub(super) use procs::installed;
+#[cfg(all(test, target_os = "macos"))]
+pub(super) use procs::procargs;
+pub(super) use procs::{launch, lone, path};

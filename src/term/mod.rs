@@ -18,6 +18,8 @@ pub mod mouse;
 mod notify;
 mod paint;
 mod pointer;
+#[cfg(windows)]
+mod procs;
 mod prompts;
 mod pty;
 mod reports;

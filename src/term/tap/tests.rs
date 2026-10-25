@@ -444,14 +444,3 @@ fn a_turn_s_bytes_with_more_waiting_wake_the_event_loop_once() {
     assert!(woken[0].readable);
     assert_eq!(woken[0].key, alacritty_terminal::tty::PTY_READ_WRITE_TOKEN);
 }
-
-#[test]
-fn an_unnamed_prompt_is_held_by_its_group_the_shell_or_no_one_known() {
-    // fish's own prompt, or a third party's, held by the session's shell.
-    assert_eq!(prompter(Some(10), 10, false), Holder::Shell);
-    // A program's under PowerShell, which names its own and runs programs in its group.
-    assert_eq!(prompter(Some(10), 10, true), Holder::Unknown);
-    // omp's, in a group of its own.
-    assert_eq!(prompter(Some(20), 10, true), Holder::Group(20));
-    assert_eq!(prompter(None, 10, false), Holder::Unknown);
-}
